@@ -1,0 +1,320 @@
+From b49816fb07cfafd9c4502bc5cbbe06a58bf83ada Mon Sep 17 00:00:00 2001
+From: Prachi Gupta <pragupta@us.ibm.com>
+Date: Tue, 29 Nov 2016 09:46:43 -0600
+Subject: [PATCH 1/2] witherspoon xml: fixes to work with latest
+ witherspoon.xml
+
+Change-Id: I82dcf21e28f77bcd1fb2391a5bd40d8ce1a6b172
+---
+ src/usr/hwas/common/hwas.C                         |  2 +-
+ src/usr/isteps/istep06/host_gard.C                 | 30 +++++++++
+ src/usr/targeting/common/Targets.pm                | 75 ++++++++++++++++++++--
+ src/usr/targeting/common/processMrw.pl             | 17 ++---
+ .../targeting/common/xmltohb/attribute_types.xml   |  2 +-
+ .../targeting/common/xmltohb/target_types_hb.xml   |  4 +-
+ 6 files changed, 107 insertions(+), 23 deletions(-)
+
+diff --git a/src/usr/hwas/common/hwas.C b/src/usr/hwas/common/hwas.C
+index 396a42e..e0c2362 100644
+--- a/src/usr/hwas/common/hwas.C
++++ b/src/usr/hwas/common/hwas.C
+@@ -561,7 +561,7 @@ bool isDescFunctional(const TARGETING::TargetHandle_t &i_desc,
+                      i_pgData[VPD_CP00_PG_XBUS_INDEX],
+                      (i_pgData[VPD_CP00_PG_XBUS_INDEX] &
+                       ~VPD_CP00_PG_XBUS_IOX[indexXB]));
+-            l_descFunctional = false;
++            l_descFunctional = true;
+         }
+     }
+     else
+diff --git a/src/usr/isteps/istep06/host_gard.C b/src/usr/isteps/istep06/host_gard.C
+index 0b6464d..4d9e547 100644
+--- a/src/usr/isteps/istep06/host_gard.C
++++ b/src/usr/isteps/istep06/host_gard.C
+@@ -49,6 +49,7 @@
+ #include  <errl/errludtarget.H>
+ 
+ #include <console/consoleif.H>
++#include <map>
+ 
+ // Custom compile configs
+ #include <config.h>
+@@ -60,9 +61,36 @@
+   #include <diag/attn/attn.H>
+ #endif
+ 
++using namespace TARGETING;
++
+ namespace ISTEP_06
+ {
+ 
++void witherspoon_hacks ()
++{
++    TRACFCOMP( ISTEPS_TRACE::g_trac_isteps_trace, "--witherspoon hacks--" );
++
++    std::map<TARGETING::TYPE,uint64_t> l_presData;
++    for (TARGETING::TargetIterator target = TARGETING::targetService().begin();
++         target != TARGETING::targetService().end();
++         ++target)
++    {
++        if ((target->getAttr<TARGETING::ATTR_HWAS_STATE>().present))
++        {
++            TARGETING::TYPE l_type = target->getAttr<TARGETING::ATTR_TYPE>();
++            if ((l_type == TARGETING::TYPE_OBUS) ||
++                (l_type == TARGETING::TYPE_XBUS))
++            {
++                TRACFCOMP(ISTEPS_TRACE::g_trac_isteps_trace, "Prachi: Deconfiguring:0x%08x",
++                        TARGETING::get_huid(*target));
++                HWAS::theDeconfigGard().deconfigureTarget( **target,
++                        HWAS::DeconfigGard::DECONFIGURED_BY_PHYP);
++            }
++        }
++    }
++}
++
++
+ void* host_gard( void *io_pArgs )
+ {
+     TRACDCOMP( ISTEPS_TRACE::g_trac_isteps_trace, "host_gard entry" );
+@@ -118,6 +146,8 @@ void* host_gard( void *io_pArgs )
+                 break;
+             }
+ 
++            witherspoon_hacks();
++
+             if (l_err == NULL)
+             {
+                 //  check and see if we still have enough hardware to continue
+diff --git a/src/usr/targeting/common/Targets.pm b/src/usr/targeting/common/Targets.pm
+index fc18675..838ca8d 100644
+--- a/src/usr/targeting/common/Targets.pm
++++ b/src/usr/targeting/common/Targets.pm
+@@ -123,7 +123,8 @@ sub loadXML
+     print "Loading MRW XML: $filename\n";
+     $self->{xml} =
+       XMLin($filename,forcearray => [ 'child_id', 'hidden_child_id', 'bus',
+-                                      'property', 'field', 'attribute' ]);
++                                      'property', 'field', 'attribute',
++                                      'enumerator' ]);
+ 
+     if (defined($self->{xml}->{'enumerationTypes'}))
+     {
+@@ -462,7 +463,6 @@ sub buildHierarchy
+     {
+         $baseptr = $self->{xml}->{'targetInstances'}->{'targetInstance'};
+     }
+-
+     if ($target eq "")
+     {
+         ## find system target
+@@ -1332,16 +1332,16 @@ sub findConnections
+     my $target   = shift;
+     my $bus_type = shift;
+     my $end_type = shift;
++
+     my %connections;
+     my $num=0;
+     my $target_children = $self->getTargetChildren($target);
+-
+     if ($target_children eq "")
+     {
+         return "";
+     }
+ 
+-    foreach my $child (@{ $self->getTargetChildren($target) })
++    foreach my $child ($self->getAllTargetChildren($target))
+     {
+         my $child_bus_type = $self->getBusType($child);
+         if ($child_bus_type eq $bus_type)
+@@ -1353,7 +1353,6 @@ sub findConnections
+                 my $type        = $self->getMrwType($dest_parent);
+                 my $dest_type   = $self->getType($dest_parent);
+                 my $dest_class  = $self->getAttribute($dest_parent,"CLASS");
+-
+                 if ($type eq "NA")
+                 {
+                     $type = $dest_type;
+@@ -1361,6 +1360,29 @@ sub findConnections
+                 if ($type eq "NA") {
+                     $type = $dest_class;
+                 }
++
++                if ($end_type ne "") {
++                    #Look for an end_type match on any ancestor, as
++                    #connections may have a destination unit with a hierarchy
++                    #like unit->pingroup->muxgroup->chip where the chip has
++                    #the interesting type.
++                    while ($type ne $end_type) {
++
++                        $dest_parent = $self->getTargetParent($dest_parent);
++                        if ($dest_parent eq "") {
++                            last;
++                        }
++
++                        $type = $self->getMrwType($dest_parent);
++                        if ($type eq "NA") {
++                            $type = $self->getType($dest_parent);
++                        }
++                        if ($type eq "NA") {
++                            $type = $self->getAttribute($dest_parent, "CLASS");
++                        }
++                    }
++                }
++
+                 if ($type eq $end_type || $end_type eq "")
+                 {
+                     $connections{CONN}[$num]{SOURCE}=$child;
+@@ -1554,6 +1576,22 @@ sub renameAttribute
+     return 0;
+ }
+ 
++## remove an attribute from a target
++sub removeAttribute
++{
++    my $self = shift;
++    my $target = shift;
++    my $attribute = shift;
++
++    my $target_ptr = $self->{data}->{TARGETS}->{$target};
++    if (!defined($target_ptr->{ATTRIBUTES}->{$attribute}))
++    {
++        return 1;
++    }
++    delete($target_ptr->{ATTRIBUTES}->{$attribute});
++    $self->log($target, "Removing attribute: $attribute");
++}
++
+ ## copy an attribute between targets
+ sub copyAttribute
+ {
+@@ -1589,7 +1627,6 @@ sub setAttributeField
+     my $value     = shift;
+     $self->{data}->{TARGETS}->{$target}->{ATTRIBUTES}->{$attribute}->{default}
+       ->{field}->{$field}->{value} = $value;
+-
+     $self->log($target, "Setting Attribute: $attribute ($field) =$value");
+ }
+ ## returns complex attribute value
+@@ -1652,6 +1689,27 @@ sub getTargetChildren
+     return $target_ptr->{CHILDREN};
+ }
+ 
++## returns an array of all child (including grandchildren) target names
++sub getAllTargetChildren
++{
++    my $self   = shift;
++    my $target = shift;
++    my @children;
++
++    my $targets = $self->getTargetChildren($target);
++    if ($targets ne "")
++    {
++        for my $child (@$targets)
++        {
++            push @children, $child;
++            my @more = $self->getAllTargetChildren($child);
++            push @children, @more;
++        }
++    }
++
++    return @children;
++}
++
+ sub getEnumValue
+ {
+     my $self     = shift;
+@@ -1964,6 +2022,11 @@ C<INDEX>.
+ Returns an array of target strings representing all the children of target
+ C<TARGET_STRING>.
+ 
++=item getAllTargetChildren(C<TARGET_STRING>)
++
++Returns an array of target strings representing all the children of target
++C<TARGET_STRING>, including grandchildren and below as well.
++
+ =item getEnumValue(C<ENUM_TYPE>,C<ENUM_NAME>)
+ 
+ Returns the enum value of type C<ENUM_TYPE> and name C<ENUM_NAME>.  The
+diff --git a/src/usr/targeting/common/processMrw.pl b/src/usr/targeting/common/processMrw.pl
+index f03187b..ca48f15 100644
+--- a/src/usr/targeting/common/processMrw.pl
++++ b/src/usr/targeting/common/processMrw.pl
+@@ -427,16 +427,6 @@ sub processProcessor
+        $targetObj->getTargetParent($target);
+     $targetObj->copyAttribute($module_target,$target,"LOCATION_CODE");
+ 
+-    ## Copy all attributes from module
+-    foreach my $attr (sort (keys
+-           %{ $targetObj->getTarget($module_target)->{TARGET}->{attribute} }))
+-    {
+-        if (($attr ne "TYPE") && ($attr ne "PHYS_PATH"))
+-        {
+-            $targetObj->copyAttribute($module_target,$target,$attr);
+-        }
+-    }
+-
+     ## Copy PCIE attributes from socket
+     ## Copy Position attribute from socket
+     foreach my $attr (sort (keys
+@@ -453,7 +443,7 @@ sub processProcessor
+     }
+ 
+     $targetObj->log($target,"Finding master proc");
+-    my $lpcs=$targetObj->findConnections($target,"LPC","FSP");
++    my $lpcs=$targetObj->findConnections($target,"LPC","BMC");
+     if ($lpcs ne "")
+     {
+        $targetObj->log ($target, "Setting master proc to $target");
+@@ -522,9 +512,9 @@ sub processProcessor
+     {
+         $targetObj->setAttributeField($target, "FSI_OPTION_FLAGS", "reserved",
+             "0");
+-        $targetObj->setAttribute($target, "FSI_MASTER_CHIP",    "physical:sys");
++        $targetObj->setAttribute($target, "FSI_MASTER_CHIP",    "physical:sys-0");
+         $targetObj->setAttribute($target, "FSI_MASTER_PORT",    "0xFF");
+-        $targetObj->setAttribute($target, "ALTFSI_MASTER_CHIP", "physical:sys");
++        $targetObj->setAttribute($target, "ALTFSI_MASTER_CHIP", "physical:sys-0");
+         $targetObj->setAttribute($target, "ALTFSI_MASTER_PORT", "0xFF");
+         $targetObj->setAttribute($target, "FSI_MASTER_TYPE",    "NO_MASTER");
+         $targetObj->setAttribute($target, "FSI_SLAVE_CASCADE",  "0");
+@@ -534,6 +524,7 @@ sub processProcessor
+     {
+         $targetObj->setAttribute($target, "PROC_MASTER_TYPE",
+             "NOT_MASTER");
++        $targetObj->setAttribute($target, "ALTFSI_MASTER_CHIP", "physical:sys-0");
+     }
+     ## Update bus speeds
+     processI2cSpeeds($targetObj,$target);
+diff --git a/src/usr/targeting/common/xmltohb/attribute_types.xml b/src/usr/targeting/common/xmltohb/attribute_types.xml
+index 141df88..55fe4ee 100644
+--- a/src/usr/targeting/common/xmltohb/attribute_types.xml
++++ b/src/usr/targeting/common/xmltohb/attribute_types.xml
+@@ -15548,7 +15548,7 @@ Measured in GB</description>
+ <attribute>
+     <id>REDUNDANT_CLOCKS</id>
+     <description>
+-        1 = System has redundant clock oscillators
++        1 = System has redundant clock oscillators
+         0 = System does not have redundant clock oscillators
+         From the Machine Readable Workbook
+     </description>
+diff --git a/src/usr/targeting/common/xmltohb/target_types_hb.xml b/src/usr/targeting/common/xmltohb/target_types_hb.xml
+index aa941be..4e2447d 100755
+--- a/src/usr/targeting/common/xmltohb/target_types_hb.xml
++++ b/src/usr/targeting/common/xmltohb/target_types_hb.xml
+@@ -258,10 +258,10 @@
+     <attribute><id>VPD_SWITCHES</id></attribute>
+ </targetTypeExtension>
+ 
+-<targetType>
++<targetTypeExtension>
+     <id>unit-xbus-nimbus</id>
+     <attribute><id>HB_TARGET_SCOMABLE</id></attribute>
+-</targetType>
++</targetTypeExtension>
+ 
+ <targetTypeExtension>
+     <id>occ</id>
+-- 
+1.8.2.2
+

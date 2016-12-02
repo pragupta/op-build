@@ -1,0 +1,44 @@
+From 371f9bfd98c308d5108272eae148b365fd47f94b Mon Sep 17 00:00:00 2001
+From: Prachi Gupta <pragupta@us.ibm.com>
+Date: Thu, 1 Dec 2016 16:14:41 -0600
+Subject: [PATCH 2/2] Fix XBUS HUID and disable ipmi
+
+Change-Id: Id26425138cd987bf1f57e560abe34a2667067218
+---
+ src/usr/targeting/common/Targets.pm    | 6 +++++-
+ src/usr/targeting/common/processMrw.pl | 2 +-
+ 2 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/src/usr/targeting/common/Targets.pm b/src/usr/targeting/common/Targets.pm
+index 838ca8d..42780dd 100644
+--- a/src/usr/targeting/common/Targets.pm
++++ b/src/usr/targeting/common/Targets.pm
+@@ -816,7 +816,11 @@ sub setCommonAttrForChiplet
+ 
+     my $fapi_name       = getFapiName($tgt_type, $node, $proc, $pos);
+ 
+-    $self->{huid_idx}->{$tgt_type} = $pos;
++    if ($tgt_type ne "XBUS")
++    {
++       $self->{huid_idx}->{$tgt_type} = $pos;
++    }
++
+     $self->setHuid($target, $sys, $node);
+     $self->setAttribute($target, "FAPI_NAME",       $fapi_name);
+     $self->setAttribute($target, "PHYS_PATH",       $physical_path);
+diff --git a/src/usr/targeting/common/processMrw.pl b/src/usr/targeting/common/processMrw.pl
+index ca48f15..375a7ab 100644
+--- a/src/usr/targeting/common/processMrw.pl
++++ b/src/usr/targeting/common/processMrw.pl
+@@ -112,7 +112,7 @@ foreach my $target (sort keys %{ $targetObj->getAllTargets() })
+         processApss($targetObj, $target);
+     }
+ 
+-    processIpmiSensors($targetObj,$target);
++    #processIpmiSensors($targetObj,$target);
+ }
+ 
+ ## check topology
+-- 
+1.8.2.2
+
