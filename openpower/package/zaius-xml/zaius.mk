@@ -4,8 +4,8 @@
 #
 ################################################################################
 
-ZAIUS_XML_VERSION ?= 9008f3388fbea340c686256fde62c38a6e761cc3
-ZAIUS_XML_SITE ?= $(call github,rlippert,zaius-xml,$(ZAIUS_XML_VERSION))
+ZAIUS_XML_VERSION ?= 3830f57368c7050e7cc4ce5cb5972c09b4c888e1
+ZAIUS_XML_SITE ?= $(call github,pragupta,zaius-xml,$(ZAIUS_XML_VERSION))
 
 ZAIUS_XML_LICENSE = Apache-2.0
 ZAIUS_XML_DEPENDENCIES = hostboot-install-images openpower-mrw-install-images common-p8-xml-install-images
@@ -39,8 +39,10 @@ define ZAIUS_XML_BUILD_CMDS
         $(MRW_HB_TOOLS)/mergexml.sh $(MRW_SCRATCH)/$(BR2_ZAIUS_SYSTEM_XML_FILENAME) \
             $(MRW_HB_TOOLS)/attribute_types.xml \
             $(MRW_HB_TOOLS)/attribute_types_hb.xml \
+            $(MRW_HB_TOOLS)/attribute_types_oppowervm.xml \
             $(MRW_HB_TOOLS)/target_types_merged.xml \
             $(MRW_HB_TOOLS)/target_types_hb.xml \
+            $(MRW_HB_TOOLS)/target_types_oppowervm.xml \
             $(MRW_SCRATCH)/$(BR2_ZAIUS_MRW_XML_FILENAME) > $(MRW_HB_TOOLS)/temporary_hb.hb.xml;
 
         # creating the targeting binary
