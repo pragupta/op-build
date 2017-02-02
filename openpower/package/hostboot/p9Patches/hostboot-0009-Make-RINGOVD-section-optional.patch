@@ -1,0 +1,38 @@
+From 0149d07ca24550e5c2d783677db3657923082b30 Mon Sep 17 00:00:00 2001
+From: Prachi Gupta <pragupta@us.ibm.com>
+Date: Wed, 1 Feb 2017 09:42:35 -0600
+Subject: [PATCH 1/2] Make RINGOVD section optional
+
+Change-Id: Ie8a8fa977f36370c990bc9a48800a67fbf2e1212
+---
+ src/usr/isteps/pm/pm_common.C | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/src/usr/isteps/pm/pm_common.C b/src/usr/isteps/pm/pm_common.C
+index 8573141..e486fd2 100644
+--- a/src/usr/isteps/pm/pm_common.C
++++ b/src/usr/isteps/pm/pm_common.C
+@@ -984,15 +984,17 @@ namespace HBPM
+             l_err = PNOR::getSectionInfo(PNOR::RINGOVD, l_pnorRingOvd);
+             if(l_err)
+             {
++                delete l_err;
++                l_err = NULL;
+                 TRACFCOMP( ISTEPS_TRACE::g_trac_isteps_trace,
+-                           ERR_MRK"getRingOvd():Error trying to read RINGOVD "
+-                           "from PNOR!");
++                           INFO_MRK"getRingOvd(): RINGOVD section not found, "
++                           "it is optional");
+                 break;
+             }
+             if(l_pnorRingOvd.size == 0)
+             {
+                 TRACFCOMP( ISTEPS_TRACE::g_trac_isteps_trace,
+-                           INFO_MRK"getRingOvd(): No RINGOVD section in PNOR");
++                           INFO_MRK"getRingOvd(): RINGOVD section is empty in PNOR");
+                 break;
+             }
+ 
+-- 
+1.8.2.2
+
