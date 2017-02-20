@@ -4,8 +4,10 @@
 #
 ################################################################################
 
-WITHERSPOON_XML_VERSION ?= 3fd670a903d5587c748cbca6749ac3059d54ec9d
+WITHERSPOON_XML_VERSION ?= c75ecc456f4af4993d0942dfd5eb362a3e1a0b02
 WITHERSPOON_XML_SITE ?= $(call github,open-power,witherspoon-xml,$(WITHERSPOON_XML_VERSION))
+
+
 
 WITHERSPOON_XML_LICENSE = Apache-2.0
 WITHERSPOON_XML_DEPENDENCIES = hostboot-install-images openpower-mrw-install-images common-p8-xml-install-images
