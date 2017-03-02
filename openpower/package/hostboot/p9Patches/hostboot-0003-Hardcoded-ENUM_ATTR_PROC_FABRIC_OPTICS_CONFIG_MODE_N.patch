@@ -1,0 +1,29 @@
+From cade493d3bf4d5c7323502c552252d4ef68d5135 Mon Sep 17 00:00:00 2001
+From: Prachi Gupta <pragupta@us.ibm.com>
+Date: Wed, 1 Mar 2017 14:03:25 -0600
+Subject: [PATCH] Hardcoded ENUM_ATTR_PROC_FABRIC_OPTICS_CONFIG_MODE_NV
+
+Change-Id: I0db085cddb8cf60daaf1d22482eb30b71eb238cc
+---
+ src/import/chips/p9/procedures/hwp/nest/p9_chiplet_scominit.C | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/src/import/chips/p9/procedures/hwp/nest/p9_chiplet_scominit.C b/src/import/chips/p9/procedures/hwp/nest/p9_chiplet_scominit.C
+index 235237a..d9eacf6 100644
+--- a/src/import/chips/p9/procedures/hwp/nest/p9_chiplet_scominit.C
++++ b/src/import/chips/p9/procedures/hwp/nest/p9_chiplet_scominit.C
+@@ -95,7 +95,10 @@ fapi2::ReturnCode p9_chiplet_scominit(const fapi2::Target<fapi2::TARGET_TYPE_PRO
+     uint8_t l_dd1 = 0;
+     uint8_t l_is_simulation = 0;
+ 
+-    fapi2::ATTR_PROC_FABRIC_OPTICS_CONFIG_MODE_Type l_fbc_optics_cfg_mode = { fapi2::ENUM_ATTR_PROC_FABRIC_OPTICS_CONFIG_MODE_SMP };
++    fapi2::ATTR_PROC_FABRIC_OPTICS_CONFIG_MODE_Type l_fbc_optics_cfg_mode = { fapi2::ENUM_ATTR_PROC_FABRIC_OPTICS_CONFIG_MODE_NV,
++   fapi2::ENUM_ATTR_PROC_FABRIC_OPTICS_CONFIG_MODE_NV,fapi2::ENUM_ATTR_PROC_FABRIC_OPTICS_CONFIG_MODE_NV,fapi2::ENUM_ATTR_PROC_FABRIC_OPTICS_CONFIG_MODE_NV };
++    FAPI_TRY(FAPI_ATTR_SET(fapi2::ATTR_PROC_FABRIC_OPTICS_CONFIG_MODE, i_target, l_fbc_optics_cfg_mode),
++             "Error from FAPI_ATTR_SET(ATTR_PROC_FABRIC_OPTICS_CONFIG_MODE)");
+     FAPI_DBG("Start");
+ 
+     // Get attribute to check if it is dd1 or dd2
+-- 
+1.8.2.2
+
