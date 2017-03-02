@@ -1,0 +1,26 @@
+From 3fb7384ffc9db398bbaa8edc0f1d6d0b41ada9a2 Mon Sep 17 00:00:00 2001
+From: Prachi Gupta <pragupta@us.ibm.com>
+Date: Wed, 1 Mar 2017 18:03:12 -0600
+Subject: [PATCH 1/2] remove ATTR_PROC_FABRIC_OPTICS_CONFIG_MODE from
+ Targets.pm
+
+Change-Id: I88f7f11ddab71e5530017327225df7f26ee6296d
+---
+ src/usr/targeting/common/Targets.pm | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/src/usr/targeting/common/Targets.pm b/src/usr/targeting/common/Targets.pm
+index c67d2c7..d778409 100644
+--- a/src/usr/targeting/common/Targets.pm
++++ b/src/usr/targeting/common/Targets.pm
+@@ -320,7 +320,6 @@ sub printAttribute
+     $filter{PROC_FABRIC_A_ATTACHED_LINK_ID}                         = 1;
+     $filter{PROC_FABRIC_A_ATTACHED_CHIP_ID}                         = 1;
+     $filter{PROC_MEM_SIZES}                                         = 1;
+-    $filter{PROC_FABRIC_OPTICS_CONFIG_MODE}                         = 1;
+     $filter{PROC_PCIE_LANE_EQUALIZATION}                            = 1;
+     $filter{HOT_PLUG_POWER_CONTROLLER_INFO}                         = 1;
+     $filter{PROC_MEM_BASES_ACK}                                     = 1;
+-- 
+1.8.2.2
+
