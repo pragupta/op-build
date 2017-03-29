@@ -1,0 +1,73 @@
+From 3e5040d628ecc761c012a77efa64b9e555d4db0b Mon Sep 17 00:00:00 2001
+From: Bill Hoffa <wghoffa@us.ibm.com>
+Date: Wed, 29 Mar 2017 09:48:38 -0500
+Subject: [PATCH] Retry SPD Presence detect at address 0xA4
+
+Change-Id: I77efb95085b536c88228ead7d3ada465339bc7c4
+---
+ src/usr/i2c/eepromdd.C | 42 +++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 39 insertions(+), 3 deletions(-)
+
+diff --git a/src/usr/i2c/eepromdd.C b/src/usr/i2c/eepromdd.C
+index 6e1d8fc..3d11877 100755
+--- a/src/usr/i2c/eepromdd.C
++++ b/src/usr/i2c/eepromdd.C
+@@ -263,6 +263,24 @@ errlHndl_t eepromPerformOp( DeviceFW::OperationType i_opType,
+                                   l_pBuffer,
+                                   l_currentOpLen,
+                                   i2cInfo );
++
++                //Retry at address 0xA4
++                if (err)
++                {
++                    delete err;
++                    i2cInfo.devAddr = 0xA4;
++
++                    TRACFCOMP(g_trac_eeprom,
++                           "Temporary: Dimm i2c read failed at"
++                           " original address, will retry at 0xA4 due to known"
++                           " HW rework problems.");
++
++                    err =  eepromRead( i2cMasterTarget,
++                                       l_pBuffer,
++                                       l_currentOpLen,
++                                       i2cInfo );
++                }
++
+             }
+             else if( i_opType == DeviceFW::WRITE )
+             {
+@@ -420,9 +438,27 @@ bool eepromPresence ( TARGETING::Target * i_target )
+ 
+         if( !l_present )
+         {
+-            TRACDCOMP(g_trac_eeprom,
+-                     ERR_MRK"i2cPresence returned false! chip NOT present!");
+-            break;
++
++            //WGH Temporarily retry eeprom presence at 0xA4 for dimms
++            if (i_target->getAttr<TARGETING::ATTR_TYPE>() == TARGETING::TYPE_DIMM)
++            {
++                i2cInfo.devAddr = 0xA4;
++                TRACFCOMP(g_trac_eeprom,
++                           "Temporary: Dimm i2c presence detect failed at"
++                           " original address, will retry at 0xA4 due to known"
++                           " HW rework problems.");
++                l_present = I2C::i2cPresence(i2cMasterTarget,
++                          i2cInfo.port,
++                          i2cInfo.engine,
++                          i2cInfo.devAddr );
++
++                if( !l_present )
++                {
++                    TRACFCOMP(g_trac_eeprom,
++                         ERR_MRK"i2cPresence returned false! chip NOT present!");
++                    break;
++                }
++            }
+         }
+ 
+     } while( 0 );
+-- 
+1.8.2.2
+
