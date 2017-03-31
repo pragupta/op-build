@@ -1,0 +1,33 @@
+From bcabdd94fc544644a35f50d2be549eb59091c285 Mon Sep 17 00:00:00 2001
+From: Dean Sanner <dsanner@us.ibm.com>
+Date: Fri, 31 Mar 2017 06:55:27 -0500
+Subject: [PATCH] Only populate OCC HDAT structs when OCC config enabled
+
+Change-Id: I9e8547c1b6af4a8be8c858666f9d58cd5f012fd3
+---
+ src/usr/runtime/populate_hbruntime.C | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/usr/runtime/populate_hbruntime.C b/src/usr/runtime/populate_hbruntime.C
+index a6f9463..8945696 100644
+--- a/src/usr/runtime/populate_hbruntime.C
++++ b/src/usr/runtime/populate_hbruntime.C
+@@ -517,6 +517,7 @@ errlHndl_t populate_HbRsvMem(uint64_t i_nodeId)
+             }
+ 
+ 
++#ifdef CONFIG_START_OCC_DURING_BOOT
+             // OCC Common entry
+             uint64_t l_occCommonAddr = l_topMemAddr
+                     - VMM_ALL_HOMER_OCC_MEMORY_SIZE;
+@@ -546,6 +547,7 @@ errlHndl_t populate_HbRsvMem(uint64_t i_nodeId)
+                     l_labelSize );
+ 
+             traceHbRsvMemRange(l_rngPtr);
++#endif
+         }
+ 
+ 
+-- 
+1.8.2.2
+
