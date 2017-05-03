@@ -5,8 +5,8 @@
 ################################################################################
 
 SKIBOOT_VERSION = $(call qstrip,$(BR2_SKIBOOT_VERSION))
-
-SKIBOOT_SITE = $(call github,open-power,skiboot,$(SKIBOOT_VERSION))
+SKIBOOT_VERSION = e531c5be68161638d767c9882700fb794c8f01f0
+SKIBOOT_SITE = $(call github,oohal,skiboot,$(SKIBOOT_VERSION))
 SKIBOOT_LICENSE = Apache-2.0
 SKIBOOT_LICENSE_FILES = LICENCE
 SKIBOOT_INSTALL_IMAGES = YES
